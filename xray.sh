@@ -1094,110 +1094,107 @@ vlessTLSConfig() {
 }
 
 vlessXTLSConfig() {
-    if [["$xtls" == "xtls-rprx-vision"]]; then
-        local uuid="$(cat '/proc/sys/kernel/random/uuid')"
-	    cat >$CONFIG_FILE <<-EOF
-		{
-		  "inbounds": [{
-		    "port": $PORT,
-		    "protocol": "vless",
-		    "settings": {
-		      "clients": [
-		        {
-		          "id": "$uuid",
-		          "flow": "$FLOW",
-		          "level": 0
-		        }
-		      ],
-		      "decryption": "none",
-		      "fallbacks": [
-		          {
-		              "alpn": "http/1.1",
-		              "dest": 80
-		          },
-		          {
-		              "alpn": "h2",
-		              "dest": 81
-		          }
-		      ]
-		    },
-		    "streamSettings": {
-		        "network": "tcp",
-		        "security": "tls",
-		        "tlsSettings": {
-		            "serverName": "$DOMAIN",
-		            "alpn": ["h2", "http/1.1"],
-		            "certificates": [
-		                {
-		                    "certificateFile": "$CERT_FILE",
-		                    "keyFile": "$KEY_FILE"
-		                }
-		            ]
-		        }
-		    }
-		  }],
-		  "outbounds": [{
-		    "protocol": "freedom",
-		    "settings": {}
-		  },{
-		    "protocol": "blackhole",
-		    "settings": {},
-		    "tag": "blocked"
-		  }]
-		}
-	EOF
-    else
-    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
-	cat >$CONFIG_FILE <<-EOF
-		{
-		  "inbounds": [{
-		    "port": $PORT,
-		    "protocol": "vless",
-		    "settings": {
-		      "clients": [
-		        {
-		          "id": "$uuid",
-		          "flow": "$FLOW",
-		          "level": 0
-		        }
-		      ],
-		      "decryption": "none",
-		      "fallbacks": [
-		          {
-		              "alpn": "http/1.1",
-		              "dest": 80
-		          },
-		          {
-		              "alpn": "h2",
-		              "dest": 81
-		          }
-		      ]
-		    },
-		    "streamSettings": {
-		        "network": "tcp",
-		        "security": "xtls",
-		        "xtlsSettings": {
-		            "serverName": "$DOMAIN",
-		            "alpn": ["http/1.1", "h2"],
-		            "certificates": [
-		                {
-		                    "certificateFile": "$CERT_FILE",
-		                    "keyFile": "$KEY_FILE"
-		                }
-		            ]
-		        }
-		    }
-		  }],
-		  "outbounds": [{
-		    "protocol": "freedom",
-		    "settings": {}
-		  },{
-		    "protocol": "blackhole",
-		    "settings": {},
-		    "tag": "blocked"
-		  }]
-		}
-	EOF
+    if [[ "$xtls" == "xtls-rprx-vision" ]]; then
+        	local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+	        cat >$CONFIG_FILE <<-EOF
+				{
+					"inbounds": [
+						{
+							"port": $PORT,
+							"protocol": "vless",
+							"settings": {
+								"clients": [
+									{
+										"id": "$uuid",
+										"flow": "$FLOW",
+										"level": 0
+									}
+								],
+								"decryption": "none",
+								"fallbacks": [
+									{
+										"alpn": "http/1.1",
+										"dest": 80
+									},
+									{
+										"alpn": "h2",
+										"dest": 81
+									}
+								]
+							},
+							"streamSettings": {
+								"streamSettings": {
+									"security": "xtls",
+									"xtlsSettings": {
+										"serverName": "$DOMAIN",
+										"alpn": [
+											"h2",
+											"http/1.1"
+										],
+										"certificates": [
+											{
+												"certificateFile": "$CERT_FILE",
+												"keyFile": "$KEY_FILE"
+											}
+										]
+									}
+								}
+							}
+						}
+						]
+				}
+			EOF
+	else
+        	local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+	        cat >$CONFIG_FILE <<-EOF
+				{
+					"inbounds": [
+						{
+							"port": $PORT,
+							"protocol": "vless",
+							"settings": {
+								"clients": [
+									{
+										"id": "$uuid",
+										"flow": "$FLOW",
+										"level": 0
+									}
+								],
+								"decryption": "none",
+								"fallbacks": [
+									{
+										"alpn": "http/1.1",
+										"dest": 80
+									},
+									{
+										"alpn": "h2",
+										"dest": 81
+									}
+								]
+							},
+							"streamSettings": {
+								"streamSettings": {
+									"security": "tls",
+									"tlsSettings": {
+										"serverName": "$DOMAIN",
+										"alpn": [
+											"h2",
+											"http/1.1"
+										],
+										"certificates": [
+											{
+												"certificateFile": "$CERT_FILE",
+												"keyFile": "$KEY_FILE"
+											}
+										]
+									}
+								}
+							}
+						}
+						]
+				}
+			EOF
+	fi
 }
 
 
