@@ -1718,7 +1718,12 @@ showLog() {
 }
 
 warpmenu() {
-	wget -N wget -N --no-check-certificate https://raw.githubusercontent.com/tdjnodj/warp/main/warp.sh && bash warp.sh
+	echo "目前warp作品有很多，请自行选择:"
+	echo "fscarmen(https://github.com/fscarmen/warp/):"
+	echo "warp: wget -N https://raw.githubusercontent.com/fscarmen/warp/main/menu.sh && bash menu.sh"
+	echo "waro-go: wget -N https://raw.githubusercontent.com/fscarmen/warp/main/warp-go.sh && bash warp-go.sh"
+	echo "P3TERX""
+    echo "bash <(curl -fsSL git.io/warp.sh) d"
 }
 
 setdns64() {
