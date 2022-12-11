@@ -1096,7 +1096,7 @@ vlessTLSConfig() {
 vlessXTLSConfig() {
     if [["$xtls" == "xtls-rprx-vision"]]; then
         local uuid="$(cat '/proc/sys/kernel/random/uuid')"
-	cat >$CONFIG_FILE <<-EOF
+	    cat >$CONFIG_FILE <<-EOF
 		{
 		  "inbounds": [{
 		    "port": $PORT,
@@ -1126,7 +1126,7 @@ vlessXTLSConfig() {
 		        "security": "tls",
 		        "tlsSettings": {
 		            "serverName": "$DOMAIN",
-		            "alpn": ["http/1.1", "h2"],
+		            "alpn": ["h2", "http/1.1"],
 		            "certificates": [
 		                {
 		                    "certificateFile": "$CERT_FILE",
@@ -1147,7 +1147,7 @@ vlessXTLSConfig() {
 		}
 	EOF
     else
-        local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
 	cat >$CONFIG_FILE <<-EOF
 		{
 		  "inbounds": [{
