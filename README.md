@@ -4,6 +4,6 @@ wget https://raw.githubusercontent.com/tdjnodj/xray_script/main/xray.sh && bash 
 
 # Thanks
 
-misakano
-
 hijk
+
+misakano
