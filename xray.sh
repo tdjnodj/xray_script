@@ -12,7 +12,7 @@ yellow() {
 	echo -e "\033[33m\033[01m$1\033[0m"
 }
 
-[[ $EUID -ne 0 ]] && red "请在root用户下运行脚本" && exit 1
+[[ $EUID -ne 0 ]] && red "Please run the script under the root user" && exit 1
 
 CMD=(
 	"$(grep -i pretty_name /etc/os-release 2>/dev/null | cut -d \" -f2)"
@@ -43,7 +43,7 @@ for ((int = 0; int < ${#REGEX[@]}; int++)); do
 	[[ $(echo "$SYS" | tr '[:upper:]' '[:lower:]') =~ ${REGEX[int]} ]] && SYSTEM="${RELEASE[int]}" && [[ -n $SYSTEM ]] && break
 done
 
-[[ -z $SYSTEM ]] && red "不支持当前VPS系统，请使用主流的操作系统" && exit 1
+[[ -z $SYSTEM ]] && red "Current VPS systems are not supported, please use a mainstream operating system" && exit 1
 [[ -z $(type -P curl) ]] && ${PACKAGE_UPDATE[int]} && ${PACKAGE_INSTALL[int]} curl
 
 SITES=(
@@ -81,16 +81,16 @@ KCP="false"
 
 checkCentOS8() {
 	if [[ -n $(cat /etc/os-release | grep "CentOS Linux 8") ]]; then
-		yellow "检测到当前VPS系统为CentOS 8，是否升级为CentOS Stream 8以确保软件包正常安装？"
+		yellow "The current VPS system is detected as CentOS 8, is it upgraded to CentOS Stream 8 to ensure the package is installed properly?"
 		read -p "请输入选项 [y/n]：" comfirmCentOSStream
 		if [[ $comfirmCentOSStream == "y" ]]; then
-			yellow "正在为你升级到CentOS Stream 8，大概需要10-30分钟的时间"
+			yellow "It is being upgraded to CentOS Stream 8 for you and will take about 10-30 minutes"
 			sleep 1
 			sed -i -e "s|releasever|releasever-stream|g" /etc/yum.repos.d/CentOS-*
 			yum clean all && yum makecache
 			dnf swap centos-linux-repos centos-stream-repos distro-sync -y
 		else
-			red "已取消升级过程，脚本即将退出！"
+			red "The upgrade process has been cancelled and the script is about to exit!"
 			exit 1
 		fi
 	fi
@@ -129,10 +129,10 @@ status() {
 statusText() {
 	res=$(status)
 	case $res in
-		2) echo -e ${GREEN}已安装${PLAIN} ${RED}未运行${PLAIN} ;;
-		3) echo -e ${GREEN}已安装${PLAIN} ${GREEN}Xray正在运行${PLAIN} ;;
-		4) echo -e ${GREEN}已安装${PLAIN} ${GREEN}Xray正在运行${PLAIN}, ${RED}Nginx未运行${PLAIN} ;;
-		5) echo -e ${GREEN}已安装${PLAIN} ${GREEN}Xray正在运行, Nginx正在运行${PLAIN} ;;
+		2) echo -e ${GREEN}Installed${PLAIN} ${RED}unrun${PLAIN} ;;
+		3) echo -e ${GREEN}Installed${PLAIN} ${GREEN}Xray is running.${PLAIN} ;;
+		4) echo -e ${GREEN}Installed${PLAIN} ${GREEN}Xray is running.${PLAIN}, ${RED}Nginx is not running${PLAIN} ;;
+		5) echo -e ${GREEN}Installed${PLAIN} ${GREEN}Xray is running, Nginx is running${PLAIN} ;;
 		*) echo -e ${RED}未安装${PLAIN} ;;
 	esac
 }
@@ -159,7 +159,7 @@ getVersion() {
 	NEW_VER="$(normalizeVersion "$(curl -s "${TAG_URL}" --connect-timeout 10 | grep 'version' | cut -d\" -f4)")"
 
 	if [[ $? -ne 0 ]] || [[ $NEW_VER == "" ]]; then
-		red "检测 Xray 版本失败，可能是VPS网络错误，请检查后重试"
+		red "Failed to detect Xray version, may be VPS network error, please check and retry"
 		return 3
 	elif [[ $RETVAL -ne 0 ]]; then
 		return 2
@@ -186,7 +186,7 @@ archAffix() {
 		ppc64le) echo 'ppc64le' ;;
 		riscv64) echo 'riscv64' ;;
 		s390x) echo 's390x' ;;
-		*) red " 不支持的CPU架构！" && exit 1 ;;
+		*) red " Unsupported CPU architectures！" && exit 1 ;;
 	esac
 
 	return 0
@@ -195,38 +195,38 @@ archAffix() {
 getData() {
 	if [[ "$TLS" == "true" || "$XTLS" == "true" ]]; then
 		echo ""
-		echo "Xray一键脚本，运行之前请确认如下条件已经具备："
-		yellow " 1. 一个伪装域名"
-		yellow " 2. 伪装域名DNS解析指向当前服务器ip（${IP4} 或 ${IP6}）"
-		yellow " 3. 如果/root目录下有 xray.pem 和 xray.key 证书密钥文件，无需理会条件2"
+		echo "Xray one-click script, please make sure the following conditions are in place before running："
+		yellow " 1. A domain name"
+		yellow " 2. domain DNS resolution to point to current server ip（${IP4} perhaps ${IP6}）"
+		yellow " 3. If the xray.pem and xray.key certificate key files are available in the /root directory, ignore condition 2"
 		echo " "
-		read -p "确认满足以上条件请按y，按其他键退出脚本：" answer
+		read -p "Press y to confirm that the above conditions are met and press other keys to exit the script：" answer
 		[[ "${answer,,}" != "y" ]] && exit 1
 		echo ""
 		while true; do
-			read -p "请输入伪装域名：" DOMAIN
+			read -p "Please enter a domain name：" DOMAIN
 			if [[ -z "${DOMAIN}" ]]; then
-				red " 域名输入错误，请重新输入！"
+				red " Domain name entered incorrectly, please re-enter！"
 			else
 				break
 			fi
 		done
 		DOMAIN=${DOMAIN,,}
-		yellow "伪装域名(host)：$DOMAIN"
+		yellow "Spoofed domain names(host)：$DOMAIN"
 		echo ""
 		if [[ -f ~/xray.pem && -f ~/xray.key ]]; then
-			yellow "检测到自有证书，将使用自有证书部署"
+			yellow "Own certificate detected, will deploy with own certificate"
 			CERT_FILE="/usr/local/etc/xray/${DOMAIN}.pem"
 			KEY_FILE="/usr/local/etc/xray/${DOMAIN}.key"
 		else
 			resolve=$(curl -sm8 ipget.net/?ip=${DOMAIN})
 			if [[ $resolve != $IP6 ]] && [[ $resolve != $IP6 ]]; then
-				yellow "${DOMAIN} 解析结果：${resolve}"
-				red "域名未解析到当前服务器IP(${IP4} 或 ${IP6})！"
-				green "建议如下："
-				yellow " 1. 请确保Cloudflare小云朵为关闭状态(仅限DNS)，其他域名解析网站设置同理"
-				yellow " 2. 请检查DNS解析设置的IP是否为VPS的IP"
-				yellow " 3. 脚本可能跟不上时代，建议截图发布到GitHub Issues或TG群询问"
+				yellow "${DOMAIN} parsing result：${resolve}"
+				red "Domain name not resolving to current server IP(${IP4} perhaps ${IP6})！"
+				green "The recommendations are as follows："
+				yellow " 1. Please ensure that Cloudflare is turned off (DNS only), same for other DNS site settings"
+				yellow " 2. Please check if the IP of the DNS resolution setting is the IP of the VPS"
+				yellow " 3. The script may not be up to date, suggest screenshots to post to GitHub Issues or the TG group to ask"
 				exit 1
 			fi
 		fi
@@ -234,34 +234,34 @@ getData() {
 	echo ""
 	if [[ "$(needNginx)" == "no" ]]; then
 		if [[ "$TLS" == "true" ]]; then
-			read -p "请输入xray监听端口 [默认443]：" PORT
+			read -p "Please enter the xray listening port [default 443]：" PORT
 			[[ -z "${PORT}" ]] && PORT=443
 		else
-			read -p "请输入xray监听端口 [100-65535的一个数字]：" PORT
+			read -p "Please enter the xray listening port [a number from 100-65535]：" PORT
 			[[ -z "${PORT}" ]] && PORT=$(shuf -i200-65000 -n1)
 			if [[ "${PORT:0:1}" == "0" ]]; then
-				red "端口不能以0开头"
+				red "Ports cannot start with 0"
 				exit 1
 			fi
 		fi
-		yellow "xray端口：$PORT"
+		yellow "xray port：$PORT"
 	else
-		read -p "请输入Nginx监听端口[100-65535的一个数字，默认443]：" PORT
+		read -p "Please enter the Nginx listening port [a number from 100-65535, default 443]：" PORT
 		[[ -z "${PORT}" ]] && PORT=443
-		[ "${PORT:0:1}" = "0" ] && red "端口不能以0开头" && exit 1
-		yellow " Nginx端口：$PORT"
+		[ "${PORT:0:1}" = "0" ] && red "Ports cannot start with 0" && exit 1
+		yellow " Nginx ports：$PORT"
 		XPORT=$(shuf -i10000-65000 -n1)
 	fi
 	if [[ "$KCP" == "true" ]]; then
 		echo ""
-		yellow "请选择伪装类型："
-		echo "   1) 无"
-		echo "   2) BT下载"
-		echo "   3) 视频通话"
-		echo "   4) 微信视频通话"
+		yellow "Please select the type of camouflage："
+		echo "   1) not"
+		echo "   2) BT Download"
+		echo "   3) Video calls"
+		echo "   4) WeChat Video Call"
 		echo "   5) dtls"
 		echo "   6) wiregard"
-		read -p "请选择伪装类型[默认：无]：" answer
+		read -p "Please select the type of camouflage [default: none]：" answer
 		case $answer in
 			2) HEADER_TYPE="utp" ;;
 			3) HEADER_TYPE="srtp" ;;
@@ -270,58 +270,58 @@ getData() {
 			6) HEADER_TYPE="wireguard" ;;
 			*) HEADER_TYPE="none" ;;
 		esac
-		yellow "伪装类型：$HEADER_TYPE"
+		yellow "Type of camouflage：$HEADER_TYPE"
 		SEED=$(cat /proc/sys/kernel/random/uuid)
 	fi
 	if [[ "$TROJAN" == "true" ]]; then
 		echo ""
-		read -p "请设置trojan密码（不输则随机生成）:" PASSWORD
+		read -p "Please set trojan password (randomly generated if you don't enter):" PASSWORD
 		[[ -z "$PASSWORD" ]] && PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
-		yellow " trojan密码：$PASSWORD"
+		yellow " trojan password：$PASSWORD"
 	fi
 	if [[ "$XTLS" == "true" ]]; then
 		echo ""
-		yellow "请选择流控模式:"
-		echo -e "   1) xtls-rprx-direct [$RED推荐$PLAIN]"
+		yellow "Please select the flow control mode:"
+		echo -e "   1) xtls-rprx-direct [$REDrecommend$PLAIN]"
 		echo "   2) xtls-rprx-origin"
-        echo -e "   3) xtls-rprx-vision [$RED推荐，但目前还不完善，仅vless能使用!!!$PLAIN]"
-		read -p "请选择流控模式[默认:direct]" answer
+        echo -e "   3) xtls-rprx-vision [$REDRecommended, but not perfect yet, only vless can use!!!$PLAIN]"
+		read -p "Please select the flow control mode [default:direct]" answer
 		[[ -z "$answer" ]] && answer=1
 		case $answer in
 			1) FLOW="xtls-rprx-direct" ;;
 			2) FLOW="xtls-rprx-origin" ;;
             3) FLOW="xtls-rprx-vision" ;;
-			*) red "无效选项，使用默认的xtls-rprx-direct" && FLOW="xtls-rprx-direct" ;;
+			*) red "Invalid option, use the default xtls-rprx-direct" && FLOW="xtls-rprx-direct" ;;
 		esac
-		yellow "流控模式：$FLOW"
+		yellow "flow control mode：$FLOW"
 	fi
 	if [[ "${WS}" == "true" ]]; then
 		echo ""
 		while true; do
-			read -p "请输入伪装路径，以/开头(不懂请直接回车)：" WSPATH
+			read -p "Please enter the camouflage path, starting with / (please just enter if you don't understand)：" WSPATH
 			if [[ -z "${WSPATH}" ]]; then
 				len=$(shuf -i5-12 -n1)
 				ws=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w $len | head -n 1)
 				WSPATH="/$ws"
 				break
 			elif [[ "${WSPATH:0:1}" != "/" ]]; then
-				red "伪装路径必须以/开头！"
+				red "The disguise path must start with /！"
 			elif [[ "${WSPATH}" == "/" ]]; then
-				red "不能使用根路径！"
+				red "Cannot use root path！"
 			else
 				break
 			fi
 		done
-		yellow "ws路径：$WSPATH"
+		yellow "ws path：$WSPATH"
 	fi
 	if [[ "$TLS" == "true" || "$XTLS" == "true" ]]; then
 		echo ""
-		yellow "请选择伪装站类型:"
-		echo "   1) 静态网站(位于/usr/share/nginx/html)"
-		echo "   2) 小说站(多失效，建议去自定义)"
-		echo "   3) 高清壁纸站(https://bing.wallpaper.pics)"
-		echo "   4) 自定义反代站点(需以http或者https开头)"
-		read -p "请选择伪装网站类型 [默认:高清壁纸站]：" answer
+		yellow "Please select the type of camouflage station:"
+		echo "   1) Static website (located at /usr/share/nginx/html)"
+		echo "   2) Novel Station (much lapsed, suggest going custom)"
+		echo "   3) HD Wallpaper Station (https://bing.wallpaper.pics)"
+		echo "   4) Custom anti-generation site (needs to start with http or https))"
+		read -p "Please select a disguise site type [Default: HD Wallpaper Station]：" answer
 		if [[ -z "$answer" ]]; then
 			PROXY_URL="https://bing.wallpaper.pics"
 		else
@@ -344,25 +344,25 @@ getData() {
 					;;
 				3) PROXY_URL="https://bing.wallpaper.pics" ;;
 				4)
-					read -p "请输入反代站点(以http或者https开头)：" PROXY_URL
+					read -p "Please enter the reverse proxy site (starting with http or https))：" PROXY_URL
 					if [[ -z "$PROXY_URL" ]]; then
 						red "请输入反代网站！"
 						exit 1
 					elif [[ "${PROXY_URL:0:4}" != "http" ]]; then
-						red "反代网站必须以http或https开头！"
+						red "Anti-generation sites must start with http or https！"
 						exit 1
 					fi
 					;;
-				*) red "请输入正确的选项！" && exit 1 ;;
+				*) red "Please enter the correct option！" && exit 1 ;;
 			esac
 		fi
 		REMOTE_HOST=$(echo ${PROXY_URL} | cut -d/ -f3)
-		yellow "伪装网站：$PROXY_URL"
+		yellow "Fake website：$PROXY_URL"
 		echo ""
-		yellow "是否允许搜索引擎爬取网站？[默认：不允许]"
-		echo "   y)允许，会有更多ip请求网站，但会消耗一些流量，vps流量充足情况下推荐使用"
-		echo "   n)不允许，爬虫不会访问网站，访问ip比较单一，但能节省vps流量"
-		read -p "请选择：[y/n]" answer
+		yellow "Whether to allow search engines to crawl the site？[Default: not allowed]"
+		echo "   y)Allowed, there will be more ip requests to the site, but it will consume some traffic, recommended if vps traffic is sufficient"
+		echo "   n)Not allowed, the crawlers won't visit the site, the access ip is more single, but it saves vps traffic"
+		read -p "Please select：[y/n]" answer
 		if [[ -z "$answer" ]]; then
 			ALLOW_SPIDER="n"
 		elif [[ "${answer,,}" == "y" ]]; then
@@ -370,18 +370,18 @@ getData() {
 		else
 			ALLOW_SPIDER="n"
 		fi
-		yellow "允许搜索引擎：$ALLOW_SPIDER"
+		yellow "Allow search engines：$ALLOW_SPIDER"
 	fi
 	echo ""
-	read -p "是否安装BBR(默认安装)?[y/n]:" NEED_BBR
+	read -p "Whether to install BBR (default installation)?[y/n]:" NEED_BBR
 	[[ -z "$NEED_BBR" ]] && NEED_BBR=y
 	[[ "$NEED_BBR" == "Y" ]] && NEED_BBR=y
-	yellow "安装BBR：$NEED_BBR"
+	yellow "Installation of BBR：$NEED_BBR"
 }
 
 installNginx() {
 	echo ""
-	yellow "正在安装nginx..."
+	yellow "nginx is being installed..."
 	if [[ "$BT" == "false" ]]; then
 		if [[ $SYSTEM == "CentOS" ]]; then
 			${PACKAGE_INSTALL[int]} epel-release
@@ -397,17 +397,17 @@ module_hotfixes=true' >/etc/yum.repos.d/nginx.repo
 		fi
 		${PACKAGE_INSTALL[int]} nginx
 		if [[ "$?" != "0" ]]; then
-			red "Nginx安装失败！"
-			green "建议如下："
-			yellow "1. 检查VPS系统的网络设置和软件源设置，强烈建议使用系统官方软件源！"
-			yellow "2. 脚本可能跟不上时代，建议截图发布到GitHub Issues或TG群询问"
+			red "Nginx installation failed！"
+			green "The recommendations are as follows："
+			yellow "1. Check the network settings and software source settings of the VPS system, it is highly recommended to use the official software source of the system！"
+			yellow "2. The script may not be up to date, suggest screenshots to post to GitHub Issues or the TG group to ask"
 			exit 1
 		fi
 		systemctl enable nginx
 	else
 		res=$(which nginx 2>/dev/null)
 		if [[ "$?" != "0" ]]; then
-			red "您安装了宝塔，请在宝塔后台安装nginx后再运行本脚本"
+			red "You have pagoda installed, please install nginx in the pagoda backend before running this script"
 			exit 1
 		fi
 	fi
@@ -439,8 +439,8 @@ getCert() {
 		systemctl stop xray
 		res=$(netstat -ntlp | grep -E ':80 |:443 ')
 		if [[ "${res}" != "" ]]; then
-			red "其他进程占用了80或443端口，请先关闭再运行一键脚本"
-			echo " 端口占用信息如下："
+			red "Other processes are occupying port 80 or 443, please close them first before running the one-click script"
+			echo " The port occupancy information is as follows："
 			echo ${res}
 			exit 1
 		fi
@@ -473,11 +473,11 @@ getCert() {
 			fi
 		fi
 		[[ -f ~/.acme.sh/${DOMAIN}_ecc/ca.cer ]] || {
-			red "抱歉，证书申请失败"
-			green "建议如下："
-			yellow " 1. 自行检测防火墙是否打开，如防火墙正在开启，请关闭防火墙或放行80端口"
-			yellow " 2. 同一域名多次申请触发Acme.sh官方风控，请更换域名或等待7天后再尝试执行脚本"
-			yellow " 3. 脚本可能跟不上时代，建议截图发布到GitHub Issues或TG群询问"
+			red "Sorry, certificate request failed"
+			green "The recommendations are as follows："
+			yellow " 1. Check whether the firewall is open, if the firewall is on, please close the firewall or release port 80"
+			yellow " 2. Multiple applications for the same domain name triggers Acme.sh official risk control, please change the domain name or wait 7 days before trying to execute the script"
+			yellow " 3. The script may not be up to date, suggest screenshots to post to GitHub Issues or the TG group to ask"
 			exit 1
 		}
 		CERT_FILE="/usr/local/etc/xray/${DOMAIN}.pem"
@@ -487,11 +487,11 @@ getCert() {
 		--fullchain-file $CERT_FILE \
 		--reloadcmd "service nginx force-reload"
 		[[ -f $CERT_FILE && -f $KEY_FILE ]] || {
-			red "抱歉，证书申请失败"
-			green "建议如下："
-			yellow " 1. 自行检测防火墙是否打开，如防火墙正在开启，请关闭防火墙或放行80端口"
-			yellow " 2. 同一域名多次申请触发Acme.sh官方风控，请更换域名或等待7天后再尝试执行脚本"
-			yellow " 3. 脚本可能跟不上时代，建议截图发布到GitHub Issues或TG群询问"
+			red "Sorry, certificate request failed"
+			green "The recommendations are as follows："
+			yellow " 1. Check whether the firewall is open, if the firewall is on, please close the firewall or release port 80"
+			yellow " 2. Multiple applications for the same domain name triggers Acme.sh official risk control, please change the domain name or wait 7 days before trying to execute the script"
+			yellow " 3. The script may not be up to date, suggest screenshots to post to GitHub Issues or the TG group to ask"
 			exit 1
 		}
 	else
@@ -704,13 +704,13 @@ installBBR() {
 	fi
 	result=$(lsmod | grep bbr)
 	if [[ "$result" != "" ]]; then
-		yellow " BBR模块已安装"
+		yellow " BBR module installed"
 		INSTALL_BBR=false
 		return
 	fi
 	res=$(systemd-detect-virt)
 	if [[ $res =~ lxc|openvz ]]; then
-		yellow " 由于你的VPS为OpenVZ或LXC架构的VPS，跳过安装"
+		yellow " Since your VPS is an OpenVZ or LXC architecture VPS, skip the installation"
 		INSTALL_BBR=false
 		return
 	fi
@@ -719,11 +719,11 @@ installBBR() {
 	sysctl -p
 	result=$(lsmod | grep bbr)
 	if [[ "$result" != "" ]]; then
-		green " BBR模块已启用"
+		green " BBR module is enabled"
 		INSTALL_BBR=false
 		return
 	fi
-	yellow " 安装BBR模块..."
+	yellow " Installing the BBR module..."
 	if [[ $SYSTEM == "CentOS" ]]; then
 		if [[ "$V6_PROXY" == "" ]]; then
 			rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
@@ -746,10 +746,10 @@ installXray() {
 	rm -rf /tmp/xray
 	mkdir -p /tmp/xray
 	DOWNLOAD_LINK="https://github.com/XTLS/Xray-core/releases/download/${NEW_VER}/Xray-linux-$(archAffix).zip"
-	yellow "正在下载Xray文件"
+	yellow "Downloading Xray files now"
 	curl -L -H "Cache-Control: no-cache" -o /tmp/xray/xray.zip ${DOWNLOAD_LINK}
 	if [ $? != 0 ]; then
-		red "下载Xray文件失败，请检查服务器网络设置"
+		red "Download of Xray file failed, please check server network settings"
 		exit 1
 	fi
 	systemctl stop xray
@@ -758,7 +758,7 @@ installXray() {
 	cp /tmp/xray/xray /usr/local/bin
 	cp /tmp/xray/geo* /usr/local/share/xray
 	chmod +x /usr/local/bin/xray || {
-		red "Xray安装失败"
+		red "Xray installation failed"
 		exit 1
 	}
 
@@ -1337,20 +1337,20 @@ install() {
 	if [[ $SYSTEM != "CentOS" ]]; then
 		${PACKAGE_INSTALL[int]} libssl-dev g++
 	fi
-	[[ -z $(type -P unzip) ]] && red "unzip安装失败，请检查网络" && exit 1
+	[[ -z $(type -P unzip) ]] && red "unzip installation failed, please check network" && exit 1
 	installNginx
 	setFirewall
 	[[ $TLS == "true" || $XTLS == "true" ]] && getCert
 	configNginx
-	yellow "安装Xray..."
+	yellow "Installing Xray..."
 	getVersion
 	RETVAL="$?"
 	if [[ $RETVAL == 0 ]]; then
-		yellow "Xray最新版 ${CUR_VER} 已经安装"
+		yellow "Xray Latest Version ${CUR_VER} Already installed"
 	elif [[ $RETVAL == 3 ]]; then
 		exit 1
 	else
-		yellow "安装Xray ${NEW_VER} ，架构$(archAffix)"
+		yellow "Installing Xray ${NEW_VER} ，infrastructure$(archAffix)"
 		installXray
 	fi
 	configXray
@@ -1364,9 +1364,9 @@ install() {
 bbrReboot() {
 	if [[ "${INSTALL_BBR}" == "true" ]]; then
 		echo
-		echo "为使BBR模块生效，系统将在30秒后重启"
+		echo "For the BBR module to take effect, the system will reboot after 30 seconds"
 		echo
-		echo -e "您可以按 ctrl + c 取消重启，稍后输入 ${RED}reboot${PLAIN} 重启系统"
+		echo -e "You can press ctrl + c to cancel the reboot, and later type ${RED}reboot${PLAIN} to reboot the system"
 		sleep 30
 		reboot
 	fi
@@ -1374,30 +1374,30 @@ bbrReboot() {
 
 update() {
 	res=$(status)
-	[[ $res -lt 2 ]] && red "Xray未安装，请先安装！" && return
+	[[ $res -lt 2 ]] && red "Xray is not installed, please install it first！" && return
 	getVersion
 	RETVAL="$?"
 	if [[ $RETVAL == 0 ]]; then
-		yellow "Xray最新版 ${CUR_VER} 已经安装"
+		yellow "Xray Latest Version ${CUR_VER} Already installed"
 	elif [[ $RETVAL == 3 ]]; then
 		exit 1
 	else
-		yellow "安装Xray ${NEW_VER} ，架构$(archAffix)"
+		yellow "Installing Xray ${NEW_VER} ，infrastructure$(archAffix)"
 		installXray
 		stop
 		start
-		green "最新版Xray安装成功！"
+		green "Latest version of Xray installed successfully！"
 	fi
 }
 
 uninstall() {
 	res=$(status)
 	if [[ $res -lt 2 ]]; then
-		red "Xray未安装，请先安装！"
+		red "Xray is not installed, please install it first！"
 		return
 	fi
 	echo ""
-	read -p "确定卸载Xray？[y/n]：" answer
+	read -p "Make sure to uninstall Xray？[y/n]：" answer
 	if [[ "${answer,,}" == "y" ]]; then
 		domain=$(grep Host $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
 		if [[ "$domain" == "" ]]; then
@@ -1423,14 +1423,14 @@ uninstall() {
 			rm -rf ${NGINX_CONF_PATH}${domain}.conf
 		fi
 		[[ -f ~/.acme.sh/acme.sh ]] && ~/.acme.sh/acme.sh --uninstall
-		green "Xray卸载成功"
+		green "Xray uninstallation successful"
 	fi
 }
 
 start() {
 	res=$(status)
 	if [[ $res -lt 2 ]]; then
-		red "Xray未安装，请先安装！"
+		red "Xray is not installed，Please install first！"
 		return
 	fi
 	stopNginx
@@ -1440,22 +1440,22 @@ start() {
 	port=$(grep port $CONFIG_FILE | head -n 1 | cut -d: -f2 | tr -d \",' ')
 	res=$(ss -nutlp | grep ${port} | grep -i xray)
 	if [[ "$res" == "" ]]; then
-		red "Xray启动失败，请检查日志或查看端口是否被占用！"
+		red "Xray failed to start, please check the logs or see if the port is occupied！"
 	else
-		yellow "Xray启动成功"
+		yellow "Xray launch successful"
 	fi
 }
 
 stop() {
 	stopNginx
 	systemctl stop xray
-	yellow "Xray停止成功"
+	yellow "Xray stop successful"
 }
 
 restart() {
 	res=$(status)
 	if [[ $res -lt 2 ]]; then
-		red "Xray未安装，请先安装！"
+		red "Xray is not installed, please install it first！"
 		return
 	fi
 	stop
@@ -1514,7 +1514,7 @@ getConfigFileInfo() {
 			xtls="true"
 			flow=$(grep flow $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
 		else
-			flow="无"
+			flow="not"
 		fi
 	fi
 }
@@ -1537,44 +1537,44 @@ outputVmess() {
 	link="vmess://${link}"
 
 	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+	echo -e "   ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
-	echo -e "   ${BLUE}加密方式(security)：${PLAIN} ${RED}auto${PLAIN}"
-	echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-	echo -e "   ${BLUE}vmess链接:${PLAIN} $RED$link$PLAIN"
+	echo -e "   ${BLUE}Additional id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
+	echo -e "   ${BLUE}encryption method(security)：${PLAIN} ${RED}auto${PLAIN}"
+	echo -e "   ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+	echo -e "   ${BLUE}vmess link:${PLAIN} $RED$link$PLAIN"
 }
 
 outputVmessKCP() {
 	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+	echo -e "   ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
-	echo -e "   ${BLUE}加密方式(security)：${PLAIN} ${RED}auto${PLAIN}"
-	echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-	echo -e "   ${BLUE}伪装类型(type)：${PLAIN} ${RED}${type}${PLAIN}"
+	echo -e "   ${BLUE}Additional id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
+	echo -e "   ${BLUE}encryption method(security)：${PLAIN} ${RED}auto${PLAIN}"
+	echo -e "   ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+	echo -e "   ${BLUE}Type of camouflage(type)：${PLAIN} ${RED}${type}${PLAIN}"
 	echo -e "   ${BLUE}mkcp seed：${PLAIN} ${RED}${seed}${PLAIN}"
 }
 
 outputTrojan() {
 	if [[ "$xtls" == "true" ]]; then
 		link="trojan://${password}@${domain}:${port}#"
-		echo -e "   ${BLUE}IP/域名(address): ${PLAIN} ${RED}${domain}${PLAIN}"
-		echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
-		echo -e "   ${BLUE}密码(password)：${PLAIN}${RED}${password}${PLAIN}"
-		echo -e "   ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
-		echo -e "   ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-		echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-		echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}XTLS${PLAIN}"
-		echo -e "   ${BLUE}Trojan链接:${PLAIN} $RED$link$PLAIN"
+		echo -e "   ${BLUE}IP/domain name(address): ${PLAIN} ${RED}${domain}${PLAIN}"
+		echo -e "   ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
+		echo -e "   ${BLUE}pin number(password)：${PLAIN}${RED}${password}${PLAIN}"
+		echo -e "   ${BLUE}flow control(flow)：${PLAIN}$RED$flow${PLAIN}"
+		echo -e "   ${BLUE}encrypted(encryption)：${PLAIN} ${RED}none${PLAIN}"
+		echo -e "   ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+		echo -e "   ${BLUE}Underlying secure transmission(tls)：${PLAIN}${RED}XTLS${PLAIN}"
+		echo -e "   ${BLUE}Trojan links:${PLAIN} $RED$link$PLAIN"
 	else
 		link="trojan://${password}@${domain}:${port}#"
-		echo -e "   ${BLUE}IP/域名(address): ${PLAIN} ${RED}${domain}${PLAIN}"
-		echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
-		echo -e "   ${BLUE}密码(password)：${PLAIN}${RED}${password}${PLAIN}"
-		echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-		echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
-		echo -e "   ${BLUE}Trojan链接:${PLAIN} $RED$link$PLAIN"
+		echo -e "   ${BLUE}IP/domain name(address): ${PLAIN} ${RED}${domain}${PLAIN}"
+		echo -e "   ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
+		echo -e "   ${BLUE}pin number(password)：${PLAIN}${RED}${password}${PLAIN}"
+		echo -e "   ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+		echo -e "   ${BLUE}Underlying secure transmission(tls)：${PLAIN}${RED}TLS${PLAIN}"
+		echo -e "   ${BLUE}Trojan links:${PLAIN} $RED$link$PLAIN"
 	fi
 }
 
@@ -1595,14 +1595,14 @@ outputVmessTLS() {
 	link=$(echo -n ${raw} | base64 -w 0)
 	link="vmess://${link}"
 	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+	echo -e "   ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
-	echo -e "   ${BLUE}加密方式(security)：${PLAIN} ${RED}none${PLAIN}"
-	echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-	echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-	echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
-	echo -e "   ${BLUE}vmess链接: ${PLAIN}$RED$link$PLAIN"
+	echo -e "   ${BLUE}Additional id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
+	echo -e "   ${BLUE}encryption method(security)：${PLAIN} ${RED}none${PLAIN}"
+	echo -e "   ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+	echo -e "   ${BLUE}Spoofed domain/host name(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
+	echo -e "   ${BLUE}Underlying secure transmission(tls)：${PLAIN}${RED}TLS${PLAIN}"
+	echo -e "   ${BLUE}vmess link: ${PLAIN}$RED$link$PLAIN"
 }
 
 outputVmessWS() {
@@ -1623,32 +1623,32 @@ outputVmessWS() {
 	link="vmess://${link}"
 
 	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+	echo -e "   ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
-	echo -e "   ${BLUE}加密方式(security)：${PLAIN} ${RED}none${PLAIN}"
-	echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-	echo -e "   ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
-	echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-	echo -e "   ${BLUE}路径(path)：${PLAIN}${RED}${wspath}${PLAIN}"
-	echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
-	echo -e "   ${BLUE}vmess链接:${PLAIN} $RED$link$PLAIN"
+	echo -e "   ${BLUE}Additional id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
+	echo -e "   ${BLUE}encryption method(security)：${PLAIN} ${RED}none${PLAIN}"
+	echo -e "   ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+	echo -e "   ${BLUE}Type of camouflage(type)：${PLAIN}${RED}none$PLAIN"
+	echo -e "   ${BLUE}Fake domain/host name(host)/SNI/peer name：${PLAIN}${RED}${domain}${PLAIN}"
+	echo -e "   ${BLUE}trails(path)：${PLAIN}${RED}${wspath}${PLAIN}"
+	echo -e "   ${BLUE}Underlying secure transmission(tls)：${PLAIN}${RED}TLS${PLAIN}"
+	echo -e "   ${BLUE}vmess link:${PLAIN} $RED$link$PLAIN"
 }
 
 showInfo() {
 	res=$(status)
 	if [[ $res -lt 2 ]]; then
-		red "Xray未安装，请先安装！"
+		red "Xray is not installed, please install it first！"
 		return
 	fi
 
 	echo ""
-	yellow " Xray配置文件: ${CONFIG_FILE}"
-	yellow " Xray配置信息："
+	yellow " Xray Profile: ${CONFIG_FILE}"
+	yellow " Xray Configuration Information："
 
 	getConfigFileInfo
 
-	echo -e "   ${BLUE}协议: ${PLAIN} ${RED}${protocol}${PLAIN}"
+	echo -e "   ${BLUE}agreements: ${PLAIN} ${RED}${protocol}${PLAIN}"
 	if [[ "$trojan" == "true" ]]; then
 		outputTrojan
 		return 0
@@ -1668,57 +1668,57 @@ showInfo() {
 	else
 		if [[ "$kcp" == "true" ]]; then
 			echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-			echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+			echo -e "   ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-			echo -e "   ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-			echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-			echo -e "   ${BLUE}伪装类型(type)：${PLAIN} ${RED}${type}${PLAIN}"
+			echo -e "   ${BLUE}encrypted(encryption)：${PLAIN} ${RED}none${PLAIN}"
+			echo -e "   ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+			echo -e "   ${BLUE}Type of camouflage(type)：${PLAIN} ${RED}${type}${PLAIN}"
 			echo -e "   ${BLUE}mkcp seed：${PLAIN} ${RED}${seed}${PLAIN}"
 			return 0
 		fi
 		if [[ "$xtls" == "true" ]]; then
 			echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-			echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+			echo -e " ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-			echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
-			echo -e " ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-			echo -e " ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-			echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
-			echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-			echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}XTLS${PLAIN}"
+			echo -e " ${BLUE}flow control(flow)：${PLAIN}$RED$flow${PLAIN}"
+			echo -e " ${BLUE}encrypted(encryption)：${PLAIN} ${RED}none${PLAIN}"
+			echo -e " ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+			echo -e " ${BLUE}Type of camouflage(type)：${PLAIN}${RED}none$PLAIN"
+			echo -e " ${BLUE}Fake domain/host name(host)/SNI/peer name：${PLAIN}${RED}${domain}${PLAIN}"
+			echo -e " ${BLUE}Underlying secure transmission(tls)：${PLAIN}${RED}XTLS${PLAIN}"
 		elif [[ "$ws" == "false" ]]; then
 			echo -e " ${BLUE}IP(address):  ${PLAIN}${RED}${IP}${PLAIN}"
-			echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+			echo -e " ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-			echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
-			echo -e " ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-			echo -e " ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-			echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
-			echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-			echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
+			echo -e " ${BLUE}flow control(flow)：${PLAIN}$RED$flow${PLAIN}"
+			echo -e " ${BLUE}encrypted(encryption)：${PLAIN} ${RED}none${PLAIN}"
+			echo -e " ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+			echo -e " ${BLUE}Type of camouflage(type)：${PLAIN}${RED}none$PLAIN"
+			echo -e " ${BLUE}Fake domain/host name(host)/SNI/peer name：${PLAIN}${RED}${domain}${PLAIN}"
+			echo -e " ${BLUE}Underlying secure transmission(tls)：${PLAIN}${RED}TLS${PLAIN}"
 		else
 			echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-			echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+			echo -e " ${BLUE}port(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-			echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
-			echo -e " ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-			echo -e " ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-			echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
-			echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-			echo -e " ${BLUE}路径(path)：${PLAIN}${RED}${wspath}${PLAIN}"
-			echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
+			echo -e " ${BLUE}flow control(flow)：${PLAIN}$RED$flow${PLAIN}"
+			echo -e " ${BLUE}encrypted(encryption)：${PLAIN} ${RED}none${PLAIN}"
+			echo -e " ${BLUE}transfer protocol(network)：${PLAIN} ${RED}${network}${PLAIN}"
+			echo -e " ${BLUE}Type of camouflage(type)：${PLAIN}${RED}none$PLAIN"
+			echo -e " ${BLUE}Fake domain/host name(host)/SNI/peer name：${PLAIN}${RED}${domain}${PLAIN}"
+			echo -e " ${BLUE}trails(path)：${PLAIN}${RED}${wspath}${PLAIN}"
+			echo -e " ${BLUE}Underlying secure transmission(tls)：${PLAIN}${RED}TLS${PLAIN}"
 		fi
 	fi
 }
 
 showLog() {
 	res=$(status)
-	[[ $res -lt 2 ]] && red "Xray未安装，请先安装！" && exit 1
+	[[ $res -lt 2 ]] && red "Xray is not installed, please install it first！" && exit 1
 	journalctl -xen -u xray --no-pager
 }
 
 warpmenu() {
-	echo "目前warp作品有很多，请自行选择:"
+	echo "There are many warp works currently available, so choose your own:"
 	echo "fscarmen(https://github.com/fscarmen/warp/):"
 	echo "warp: wget -N https://raw.githubusercontent.com/fscarmen/warp/main/menu.sh && bash menu.sh"
 	echo "waro-go: wget -N https://raw.githubusercontent.com/fscarmen/warp/main/warp-go.sh && bash warp-go.sh"
@@ -1779,10 +1779,10 @@ system_optimize() {
 	echo "*               soft    nofile           1000000
 	*               hard    nofile          1000000" >/etc/security/limits.conf
 	echo "ulimit -SHn 1000000" >>/etc/profile
-	read -p "需要重启VPS，系统优化配置才能生效，是否现在重启？ [Y/n] :" yn
+	read -p "You need to restart the VPS for the system optimization configuration to take effect, do you want to restart now？ [Y/n] :" yn
 	[[ -z $yn ]] && yn="y"
 	if [[ $yn == [Yy] ]]; then
-		yellow "VPS 重启中..."
+		yellow "VPS Rebooting in progress..."
 		reboot
 	fi
 }
@@ -1800,10 +1800,10 @@ open_ports() {
 	iptables -F
 	iptables -X
 	netfilter-persistent save
-	yellow "VPS中的所有网络端口已开启"
+	yellow "All network ports in the VPS are open"
 }
 
-#禁用IPv6
+#Disabling IPv6
 closeipv6() {
 	clear
 	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
@@ -1817,10 +1817,10 @@ closeipv6() {
 net.ipv6.conf.default.disable_ipv6 = 1
 net.ipv6.conf.lo.disable_ipv6 = 1" >>/etc/sysctl.d/99-sysctl.conf
 	sysctl --system
-	green "禁用IPv6结束，可能需要重启！"
+	green "End of IPv6 disabling, may require reboot！"
 }
 
-#开启IPv6
+#Enabling IPv6
 openipv6() {
 	clear
 	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
@@ -1834,53 +1834,53 @@ openipv6() {
 net.ipv6.conf.default.disable_ipv6 = 0
 net.ipv6.conf.lo.disable_ipv6 = 0" >>/etc/sysctl.d/99-sysctl.conf
 	sysctl --system
-	green "开启IPv6结束，可能需要重启！"
+	green "End of IPv6 enablement, may need to reboot！"
 }
 
 menu() {
 	clear
 	echo "#############################################################"
-	echo -e "#                     ${RED}Xray一键安装脚本${PLAIN}                      #"
-	echo -e "# ${GREEN}作者${PLAIN}: 网络跳越(hijk) & MisakaNo                           #"
+	echo -e "#                     ${RED}Xray One-Click Installation Script${PLAIN}                      #"
+	echo -e "# ${GREEN}作者${PLAIN}: Network Jump Over (hijk) & MisakaNo                           #"
 	echo -e "# ${GREEN}博客${PLAIN}: https://owo.misaka.rest                             #"
 	echo -e "# ${GREEN}论坛${PLAIN}: https://vpsgo.co                                    #"
 	echo -e "# ${GREEN}TG群${PLAIN}: https://t.me/misakanetcn                            #"
 	echo "#############################################################"
 	echo -e "  "
-	echo -e "  ${GREEN}1.${PLAIN}   安装Xray-VMESS${PLAIN}${RED}(不推荐)${PLAIN}"
-	echo -e "  ${GREEN}2.${PLAIN}   安装Xray-${BLUE}VMESS+mKCP${PLAIN}"
-	echo -e "  ${GREEN}3.${PLAIN}   安装Xray-VMESS+TCP+TLS"
-	echo -e "  ${GREEN}4.${PLAIN}   安装Xray-${BLUE}VMESS+WS+TLS${PLAIN}${RED}(推荐)(可过支持WebSocket的CDN)${PLAIN}"
-	echo -e "  ${GREEN}5.${PLAIN}   安装Xray-${BLUE}VLESS+mKCP${PLAIN}"
-	echo -e "  ${GREEN}6.${PLAIN}   安装Xray-VLESS+TCP+TLS"
-	echo -e "  ${GREEN}7.${PLAIN}   安装Xray-${BLUE}VLESS+WS+TLS${PLAIN}${RED}(推荐)(可过支持WebSocket的CDN)${PLAIN}"
-	echo -e "  ${GREEN}8.${PLAIN}   安装Xray-${BLUE}VLESS+TCP+XTLS${PLAIN}${RED}(不推荐)${PLAIN}"
-	echo -e "  ${GREEN}9.${PLAIN}   安装${BLUE}Trojan${PLAIN}${RED}(推荐)(延迟低)${PLAIN}"
-	echo -e "  ${GREEN}10.${PLAIN}  安装${BLUE}Trojan+XTLS${PLAIN}${RED}(不推荐)${PLAIN}"
+	echo -e "  ${GREEN}1.${PLAIN}   Installing Xray-VMESS${PLAIN}${RED}(would not recommend)${PLAIN}"
+	echo -e "  ${GREEN}2.${PLAIN}   Installing Xray-${BLUE}VMESS+mKCP${PLAIN}"
+	echo -e "  ${GREEN}3.${PLAIN}   Install Xray-VMESS+TCP+TLS"
+	echo -e "  ${GREEN}4.${PLAIN}   Install Xray-${BLUE}VMESS+WS+TLS${PLAIN}${RED}(recommended)(can pass a WebSocket-enabled CDN) ${PLAIN}"
+	echo -e "  ${GREEN}5.${PLAIN}   Install Xray-${BLUE}VLESS+mKCP${PLAIN}"
+	echo -e "  ${GREEN}6.${PLAIN}   Install Xray-VLESS+TCP+TLS"
+	echo -e "  ${GREEN}7.${PLAIN}   Install Xray-${BLUE}VLESS+WS+TLS${PLAIN}${RED}(recommended)(can pass a CDN with WebSocket support)${PLAIN}"
+	echo -e "  ${GREEN}8.${PLAIN}   Install Xray-${BLUE}VLESS+TCP+XTLS${PLAIN}${RED}(not recommended)${PLAIN}"
+	echo -e "  ${GREEN}9.${PLAIN}   Install ${BLUE}Trojan${PLAIN}${RED}(recommended)(low latency)${PLAIN}"
+	echo -e "  ${GREEN}10.${PLAIN}  Install ${BLUE}Trojan+XTLS${PLAIN}${RED}(not recommended)${PLAIN}"
 	echo " -------------"
-	echo -e "  ${GREEN}11.${PLAIN}  更新Xray"
-	echo -e "  ${GREEN}12.  ${RED}卸载Xray${PLAIN}"
+	echo -e "  ${GREEN}11.${PLAIN}  Update Xray"
+	echo -e "  ${GREEN}12.  ${RED} uninstall Xray ${PLAIN}"
 	echo " -------------"
-	echo -e "  ${GREEN}13.${PLAIN}  启动Xray"
-	echo -e "  ${GREEN}14.${PLAIN}  重启Xray"
-	echo -e "  ${GREEN}15.${PLAIN}  停止Xray"
+	echo -e "  ${GREEN}13.${PLAIN}  Start Xray"
+	echo -e "  ${GREEN}14.${PLAIN}  Restart Xray"
+	echo -e "  ${GREEN}15.${PLAIN}  Stop Xray"
 	echo " -------------"
-	echo -e "  ${GREEN}16.${PLAIN}  查看Xray配置"
-	echo -e "  ${GREEN}17.${PLAIN}  查看Xray日志"
+	echo -e "  ${GREEN}16.${PLAIN}  View Xray Configuration"
+	echo -e "  ${GREEN}17.${PLAIN}  View Xray logs"
 	echo " -------------"
-	echo -e "  ${GREEN}18.${PLAIN}  安装并管理WARP"
-	echo -e "  ${GREEN}19.${PLAIN}  设置DNS64服务器"
-	echo -e "  ${GREEN}20.${PLAIN}  VPS系统优化"
-	echo -e "  ${GREEN}21.${PLAIN}  放开VPS的所有端口"
-	echo -e "  ${GREEN}22.${PLAIN}  开启IPv6"
-	echo -e "  ${GREEN}23.${PLAIN}  禁用IPv6"
+	echo -e "  ${GREEN}18.${PLAIN}  Installing and managing WARP"
+	echo -e "  ${GREEN}19.${PLAIN}  Setting up a DNS64 server"
+	echo -e "  ${GREEN}20.${PLAIN}  VPS System Optimization"
+	echo -e "  ${GREEN}21.${PLAIN}  Release all ports of the VPS"
+	echo -e "  ${GREEN}22.${PLAIN}  Enabling IPv6"
+	echo -e "  ${GREEN}23.${PLAIN}  Disabling IPv6"
 	echo " -------------"
-	echo -e "  ${GREEN}0.${PLAIN}   退出"
-	echo -n " 当前Xray状态："
+	echo -e "  ${GREEN}0.${PLAIN}   exit"
+	echo -n " Current Xray Status："
 	statusText
 	echo
 
-	read -p "请选择操作[0-23]：" answer
+	read -p "Please select the operation[0-23]：" answer
 	case $answer in
 		0) exit 1 ;;
 		1) install ;;
@@ -1906,7 +1906,7 @@ menu() {
 		21) open_ports ;;
 		22) openipv6 ;;
 		23) closeipv6 ;;
-		*) red "请选择正确的操作！" && exit 1 ;;
+		*) red "Please select the correct operation！" && exit 1 ;;
 	esac
 }
 
@@ -1915,5 +1915,5 @@ action=$1
 
 case "$action" in
 	menu | update | uninstall | start | restart | stop | showInfo | showLog) ${action} ;;
-	*) echo " 参数错误" && echo " 用法: $(basename $0) [menu|update|uninstall|start|restart|stop|showInfo|showLog]" ;;
+	*) echo " Parameter error" && echo " usage: $(basename $0) [menu|update|uninstall|start|restart|stop|showInfo|showLog]" ;;
 esac
