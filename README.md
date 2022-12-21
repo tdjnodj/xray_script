@@ -1,7 +1,7 @@
 Update the Installation script's language to English
 
 ```shell
-wget https://raw.githubusercontent.com/arminmacx/xray_script/main/xray.sh && bash xray.sh
+wget https://raw.githubusercontent.com/tdjnodj/xray_script/en/xray.sh && bash xray.sh
 ```
 
 # Thanks
@@ -9,3 +9,5 @@ wget https://raw.githubusercontent.com/arminmacx/xray_script/main/xray.sh && bas
 hijk
 
 misakano
+
+[arminmacx](https://github.com/arminmacx/xray_script)
