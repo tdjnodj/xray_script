@@ -7,3 +7,5 @@ wget https://raw.githubusercontent.com/tdjnodj/xray_script/main/xray.sh && bash 
 hijk
 
 misakano
+
+[arminmacx](https://github.com/arminmacx/)
