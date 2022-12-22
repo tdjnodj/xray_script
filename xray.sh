@@ -155,7 +155,7 @@ getVersion() {
 	VER=$(/usr/local/bin/xray version 2>/dev/null | head -n1 | awk '{print $2}')
 	RETVAL=$?
 	CUR_VER="$(normalizeVersion "$(echo "$VER" | head -n 1 | cut -d " " -f2)")"
-	TAG_URL="https://data.jsdelivr.com/v1/package/resolve/gh/XTLS/Xray-core"
+	TAG_URL="https://raw.githubusercontent.com/tdjnodj/xray_script/api/version"
 	NEW_VER="$(normalizeVersion "$(curl -s "${TAG_URL}" --connect-timeout 10 | grep 'version' | cut -d\" -f4)")"
 
 	if [[ $? -ne 0 ]] || [[ $NEW_VER == "" ]]; then
