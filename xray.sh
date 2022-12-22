@@ -138,7 +138,7 @@ statusText() {
 }
 
 normalizeVersion() {
-	latestXrayVer=v$(curl -Ls "https://data.jsdelivr.com/v1/package/resolve/gh/XTLS/Xray-core" | grep '"version":' | sed -E 's/.*"([^"]+)".*/\1/')
+	latestXrayVer=v$(curl -Ls "https://raw.githubusercontent.com/tdjnodj/xray_script/api/version" | grep '"version":' | sed -E 's/.*"([^"]+)".*/\1/')
 	if [ -n "$1" ]; then
 		case "$1" in
 			v*) echo "$1" ;;
@@ -764,8 +764,8 @@ installXray() {
 
 	cat >/etc/systemd/system/xray.service <<-EOF
 		[Unit]
-		Description=Xray Service by Misaka-blog
-		Documentation=https://github.com/Misaka-blog
+		Description=Xray Service
+		Documentation=https://github.com/XTLS/Xray-core
 		After=network.target nss-lookup.target
 		
 		[Service]
@@ -1841,10 +1841,8 @@ menu() {
 	clear
 	echo "#############################################################"
 	echo -e "#                     ${RED}Xray一键安装脚本${PLAIN}                      #"
-	echo -e "# ${GREEN}作者${PLAIN}: 网络跳越(hijk) & MisakaNo                           #"
-	echo -e "# ${GREEN}博客${PLAIN}: https://owo.misaka.rest                             #"
+	echo -e "# ${GREEN}作者${PLAIN}: 网络跳越(hijk)                                      #"
 	echo -e "# ${GREEN}论坛${PLAIN}: https://vpsgo.co                                    #"
-	echo -e "# ${GREEN}TG群${PLAIN}: https://t.me/misakanetcn                            #"
 	echo "#############################################################"
 	echo -e "  "
 	echo -e "  ${GREEN}1.${PLAIN}   安装Xray-VMESS${PLAIN}${RED}(不推荐)${PLAIN}"
@@ -1854,7 +1852,7 @@ menu() {
 	echo -e "  ${GREEN}5.${PLAIN}   安装Xray-${BLUE}VLESS+mKCP${PLAIN}"
 	echo -e "  ${GREEN}6.${PLAIN}   安装Xray-VLESS+TCP+TLS"
 	echo -e "  ${GREEN}7.${PLAIN}   安装Xray-${BLUE}VLESS+WS+TLS${PLAIN}${RED}(推荐)(可过支持WebSocket的CDN)${PLAIN}"
-	echo -e "  ${GREEN}8.${PLAIN}   安装Xray-${BLUE}VLESS+TCP+XTLS${PLAIN}${RED}(不推荐)${PLAIN}"
+	echo -e "  ${GREEN}8.${PLAIN}   安装Xray-${BLUE}VLESS+TCP+XTLS${PLAIN}${RED}(推荐)${PLAIN}"
 	echo -e "  ${GREEN}9.${PLAIN}   安装${BLUE}Trojan${PLAIN}${RED}(推荐)(延迟低)${PLAIN}"
 	echo -e "  ${GREEN}10.${PLAIN}  安装${BLUE}Trojan+XTLS${PLAIN}${RED}(不推荐)${PLAIN}"
 	echo " -------------"
