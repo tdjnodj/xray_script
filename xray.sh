@@ -232,6 +232,9 @@ getData() {
 		fi
 	fi
 	echo ""
+	if [[ $SHADOWSOCKS == "true" ]]; then
+	    needNginx="no"
+	fi
 	if [[ "$(needNginx)" == "no" ]]; then
 		if [[ "$TLS" == "true" ]]; then
 			read -p "请输入xray监听端口 [默认443]：" PORT
@@ -278,6 +281,18 @@ getData() {
 		read -p "请设置trojan密码（不输则随机生成）:" PASSWORD
 		[[ -z "$PASSWORD" ]] && PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
 		yellow " trojan密码：$PASSWORD"
+	fi
+	if [[ "$SHADOWSOCKS" == "true" ]]; then
+		echo ""
+		echo "设置shadowsocks密码，如果要使用shadowsocks2022且要自行设置密码，请设置32位长度的！"
+		echo "脚本默认设置的长度为32位"
+		echo "16位密码："
+		openssl rand -base64 16
+		echo "32位密码："
+		openssl rand -base64 32
+		read -p "请设置shadowsocks密码（不输则随机生成）:" PASSWORD
+		[[ -z "$PASSWORD" ]] && PASSWORD=$(openssl rand -base64 32)
+		yellow " shadowsocks密码：$PASSWORD"
 	fi
 	if [[ "$XTLS" == "true" ]]; then
 		echo ""
@@ -371,6 +386,32 @@ getData() {
 			ALLOW_SPIDER="n"
 		fi
 		yellow "允许搜索引擎：$ALLOW_SPIDER"
+	fi
+	if [[ "$SHADOWSOCKS" == "true" ]]; then
+		    yellow "加密方式(按推荐程度排序):"
+			yellow "注:(带"2022"的为shadowsocks2022，目前支持客户端较少)"
+			echo ""
+			yellow "1. 2022-blake3-chacha20-poly1305"
+			yellow "2. 2022-blake3-aes-256-gcm"
+			yellow "3. 2022-blake3-aes-128-gcm"
+			yellow "4. chacha20-poly1305(默认)"
+			yellow "5. xchacha20-poly1305"
+			yellow "6. aes-256-gcm"
+			yellow "7. aes-128-gcm"
+			read -p "请选择shadowsocks加密方式:" answer
+			[[ -z "$answer" ]] && answer=4
+			case $answer in
+			    1) METHOD="2022-blake3-chacha20-poly1305" ;;
+				2) METHOD="2022-blake3-aes-256-gcm" ;;
+				3) METHOD="2022-blake3-aes-128-gcm" ;;
+				4) METHOD="chacha20-poly1305" ;;
+				5) METHOD="xchacha20-poly1305" ;;
+				6) METHOD="aes-256-gcm" ;;
+				7) METHOD="aes-128-gcm" ;;
+				*) red "无效选项，已设置为chcha20-poly1305!" && METHOD="chacha20-poly1305" ;;
+			esac
+			echo ""
+			yellow "当前加密方式: ${METHOD}"
 	fi
 	echo ""
 	read -p "是否安装BBR(默认安装)?[y/n]:" NEED_BBR
@@ -1281,6 +1322,33 @@ vlessKCPConfig() {
 	EOF
 }
 
+shadowsocksConfig() {
+	cat >$CONFIG_FILE <<-EOF
+		{
+		  "inbounds": [{
+		    "port": $PORT,
+		    "protocol": "shadowsocks",
+		    "settings": {
+              "password": "$PASSWORD",
+			  "method": "$METHOD",
+			  "level": 0,
+			  "email": "love@xray.com",
+			  "network": "tcp,udp"
+		    }
+		}
+		   ],
+		  "outbounds": [{
+		    "protocol": "freedom",
+		    "settings": {}
+		  },{
+		    "protocol": "blackhole",
+		    "settings": {},
+		    "tag": "blocked"
+		  }]
+		}
+	EOF
+}
+
 configXray() {
 	mkdir -p /usr/local/xray
 	if [[ "$TROJAN" == "true" ]]; then
@@ -1307,8 +1375,9 @@ configXray() {
 		else
 			vmessWSConfig
 		fi
+	fi
 	#VLESS
-	else
+	if [[ "$VLESS" == "true" ]]; then
 		if [[ "$KCP" == "true" ]]; then
 			vlessKCPConfig
 			return 0
@@ -1327,6 +1396,10 @@ configXray() {
 			vlessWSConfig
 		fi
 	fi
+	#shadowsocks
+	if [[ "$SHADOWSOCKS" == "true" ]]; then
+	    shadowsocksConfig
+	fi
 }
 
 install() {
@@ -1338,7 +1411,9 @@ install() {
 		${PACKAGE_INSTALL[int]} libssl-dev g++
 	fi
 	[[ -z $(type -P unzip) ]] && red "unzip安装失败，请检查网络" && exit 1
-	installNginx
+	if [[ $SHADOWSOCKS == "false" ]]; then
+	    installNginx
+	fi
 	setFirewall
 	[[ $TLS == "true" || $XTLS == "true" ]] && getCert
 	configNginx
@@ -1470,6 +1545,7 @@ getConfigFileInfo() {
 	trojan="false"
 	protocol="VMess"
 	kcp="false"
+	SHADOWSOCKS="false"
 	uid=$(grep id $CONFIG_FILE | head -n1 | cut -d: -f2 | tr -d \",' ')
 	alterid=$(grep alterId $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
 	network=$(grep network $CONFIG_FILE | tail -n1 | cut -d: -f2 | tr -d \",' ')
@@ -1502,10 +1578,14 @@ getConfigFileInfo() {
 		if [[ "$trojan" == "" ]]; then
 			vless="true"
 			protocol="VLESS"
-		else
+		elif [[ "$SHADOWSOCKS" == "" ]]; then
 			trojan="true"
 			password=$(grep password $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
 			protocol="trojan"
+		else
+		    SHADOWSOCKS="true"
+			password=$(grep password $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
+			protocol="shadowsocks"
 		fi
 		tls="true"
 		encryption="none"
@@ -1514,7 +1594,7 @@ getConfigFileInfo() {
 			xtls="true"
 			flow=$(grep flow $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
 		else
-			flow="无"
+			flow="${flow}"
 		fi
 	fi
 }
@@ -1536,7 +1616,7 @@ outputVmess() {
 	link=$(echo -n ${raw} | base64 -w 0)
 	link="vmess://${link}"
 
-	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
 	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
@@ -1546,7 +1626,7 @@ outputVmess() {
 }
 
 outputVmessKCP() {
-	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
 	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
@@ -1594,7 +1674,7 @@ outputVmessTLS() {
 }"
 	link=$(echo -n ${raw} | base64 -w 0)
 	link="vmess://${link}"
-	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
 	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
@@ -1622,7 +1702,7 @@ outputVmessWS() {
 	link=$(echo -n ${raw} | base64 -w 0)
 	link="vmess://${link}"
 
-	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
 	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 	echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
@@ -1633,6 +1713,14 @@ outputVmessWS() {
 	echo -e "   ${BLUE}路径(path)：${PLAIN}${RED}${wspath}${PLAIN}"
 	echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
 	echo -e "   ${BLUE}vmess链接:${PLAIN} $RED$link$PLAIN"
+}
+
+outputShadowsocks() {
+	echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
+	echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+	echo -e "   ${BLUE}密码：${PLAIN}${RED}${PASSWORD}${PLAIN}"
+	echo -e "   ${BLUE}额外id(alterid)：${PLAIN} ${RED}${alterid}${PLAIN}"
+	echo -e "   ${BLUE}加密方式(security)：${PLAIN} ${RED} ${METHOD} ${PLAIN}"
 }
 
 showInfo() {
@@ -1653,6 +1741,10 @@ showInfo() {
 		outputTrojan
 		return 0
 	fi
+	if [[ "$SHADOWSOCKS" == "true" ]]; then
+	    outputShadowsocks
+		return 0
+	fi
 	if [[ "$vless" == "false" ]]; then
 		if [[ "$kcp" == "true" ]]; then
 			outputVmessKCP
@@ -1665,9 +1757,9 @@ showInfo() {
 		else
 			outputVmessWS
 		fi
-	else
+	elif [[ "$VLESS" == "true" ]]; then
 		if [[ "$kcp" == "true" ]]; then
-			echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+			echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
 			echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 			echo -e "   ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
@@ -1677,7 +1769,7 @@ showInfo() {
 			return 0
 		fi
 		if [[ "$xtls" == "true" ]]; then
-			echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+			echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
 			echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 			echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
@@ -1687,7 +1779,7 @@ showInfo() {
 			echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
 			echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}XTLS${PLAIN}"
 		elif [[ "$ws" == "false" ]]; then
-			echo -e " ${BLUE}IP(address):  ${PLAIN}${RED}${IP}${PLAIN}"
+			echo -e " ${BLUE}IP(address):  ${PLAIN}${RED}${IP4} / ${IP6}${PLAIN}"
 			echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 			echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
@@ -1697,7 +1789,7 @@ showInfo() {
 			echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
 			echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
 		else
-			echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+			echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP4} / ${IP6}${PLAIN}"
 			echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
 			echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
 			echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
@@ -1855,6 +1947,7 @@ menu() {
 	echo -e "  ${GREEN}8.${PLAIN}   安装Xray-${BLUE}VLESS+TCP+XTLS${PLAIN}${RED}(推荐)${PLAIN}"
 	echo -e "  ${GREEN}9.${PLAIN}   安装${BLUE}Trojan${PLAIN}${RED}(推荐)(延迟低)${PLAIN}"
 	echo -e "  ${GREEN}10.${PLAIN}  安装${BLUE}Trojan+XTLS${PLAIN}${RED}(不推荐)${PLAIN}"
+	echo  -e "  ${GREEN}31.${PLAIN}  安装${BLUE}shadowsocks${PLAIN}"
 	echo " -------------"
 	echo -e "  ${GREEN}11.${PLAIN}  更新Xray"
 	echo -e "  ${GREEN}12.  ${RED}卸载Xray${PLAIN}"
@@ -1904,6 +1997,7 @@ menu() {
 		21) open_ports ;;
 		22) openipv6 ;;
 		23) closeipv6 ;;
+		31) SHADOWSOCKS="true" && install ;;
 		*) red "请选择正确的操作！" && exit 1 ;;
 	esac
 }
