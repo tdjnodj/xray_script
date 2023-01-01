@@ -8,7 +8,7 @@ wget https://raw.githubusercontent.com/tdjnodj/xray_script/main/xray.sh && bash 
 
 - shadowsocks(2022)支持
 
-P.S:作者能力有限，这两个新功能都有些问题，谨慎使用
+P.S:作者能力有限，这两个新功能都有些问题，谨慎使用。未来将会重构
 
 # Thanks
 
