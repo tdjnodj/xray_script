@@ -976,6 +976,11 @@ EOF
     fi
     green "分享链接: "
     green "$link"
+
+    systemctl stop xray
+    systemctl start xray
+    ufw allow $port
+    ufw reload
 }
 
 set_withoutTLS() {
