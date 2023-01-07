@@ -738,8 +738,10 @@ EOF
 }
 EOF
         echo ""
+        ip=$(curl ip.sb)
         yellow "协议: VLESS"
         yellow "传输协议: mKCP"
+        yellow "ip :$ip"
         yellow "端口: $port"
         yellow "uuid: $uuid"
         yellow "额外ID: 0"
@@ -942,13 +944,11 @@ set_shadowsocks_withoutTLS() {
             "port": $port,
             "protocol": "shadowsocks",
             "settings": {
-                "settings": {
-                    "password": "$password",
-                    "method": "$method",
-                    "level": 0,
-                    "email": "love@xray.com",
-                    "network": "tcp,udp"
-                }
+                "password": "$password",
+                "method": "$method",
+                "level": 0,
+                "email": "love@xray.com",
+                "network": "tcp,udp"
             }
         }
     ],
