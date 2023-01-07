@@ -415,12 +415,77 @@ raw="{
 
 
     elif [[ "$transport" == "http" ]]; then
-        red "由于本选项中不带TLS，所以不能使用 HTTP/2 作为传输方式！"
-        exit 1
+        echo ""
+        red "警告: 由于 HTTP/2 官方的建议， Xray 客户端的 HTTP/2 须强制开启TLS。故本功能仅作为后端使用，因此只监听本地地址(127.0.0.1)"
+        red "不懂的可以不填域名以退出"
+        read -p "请输入域名: " domain
+        [[ -z "$domain" ]] && red "请输入域名！" && exit 1
+        yellow "当前域名: $domain"
+        echo ""
+        read -p "请输入路径(以"/"开头，默认随机): " path
+        while true; do
+            if [[ -z "${path}" ]]; then
+                tmp=$(openssl rand -hex 6)
+                path="/$tmp"
+                break
+            elif [[ "${path:0:1}" != "/" ]]; then
+                red "伪装路径必须以/开头！"
+                path=""
+            else
+                break
+            fi
+        done
+        yellow "当前路径: $path"
+        cat >/usr/local/etc/xray/config.json <<-EOF
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1"
+      "port": $port,
+      "protocol": "vmess",
+      "streamSettings": {
+        "network": "http",
+        "httpSettings": {
+            "host": [
+                "$domain"
+            ],
+            "path": "$path"
+        }
+      },
+      "settings": {
+        "clients": [
+          {
+            "id": "$uuid",
+            "alterId": 0
+          }
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "settings": {}
+    }
+  ]
+}
+EOF
+        echo ""
+        yellow "协议: VMess"
+        yellow "端口: $port"
+        yellow "uuid: $uuid"
+        yellow "额外ID: 0"
+        yellow "传输协议: HTTP/2(http)"
+        yellow "域名: $domain"
+        yellow "路径: $path"
+        echo ""
+        yellow "提示: 客户端不能直接连接！服务端只监听 127.0.0.1 "
 
 
     elif [[ "$transport" == "gRPC" ]]; then
         echo ""
+        red "警告: 客户端仅开启TLS才能连接，所以这里只监听 127.0.0.1"
+        red "不懂的请退出"
         yellow "server name: "
         yellow "作用类似于ws中的"path""
         read -p "请输入: " serverName
@@ -437,7 +502,8 @@ raw="{
 {
     "inbounds": [
         {
-            "port": "$port",
+            "listen": "127.0.0.1",
+            "port": $port,
             "protocol": "vmess",
             "settings": {
                 "clients": [
@@ -463,31 +529,13 @@ raw="{
     ]
 }
 EOF
-        ip=$(curl ip.sb)
         echo ""
         yellow "协议: VMess"
-        yellow "ip: $ip"
         yellow "端口: $port"
         yellow "uuid: $uuid"
         yellow "额外ID: 0"
         yellow "传输方式: gRPC"
         yellow "server name: $serverName"
-raw="{
-  \"v\":\"2\",
-  \"ps\":\"\",
-  \"add\":\"${ip}\",
-  \"port\":\"${port}\",
-  \"id\":\"${uuid}\",
-  \"aid\":\"0\",
-  \"net\":\"grpc\",
-  \"path\":\"${serverName}\",
-  \"tls\":\"\"
-}"
-        link=$(echo -n ${raw} | base64 -w 0)
-        shareLink="vmess://${link}"
-        echo ""
-        yellow "分享链接: "
-        green "$shareLink"
 
         
     fi 
