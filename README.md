@@ -1,5 +1,5 @@
 ```shell
-wget https://raw.githubusercontent.com/tdjnodj/xray_script/main/xray.sh && bash xray.sh
+wget https://raw.githubusercontent.com/tdjnodj/xray_script/old/xray-old.sh && bash xray-old.sh
 ```
 
 # 新功能
