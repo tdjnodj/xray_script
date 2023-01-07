@@ -221,8 +221,12 @@ raw="{
 }"
             link=$(echo -n ${raw} | base64 -w 0)
             shareLink="vmess://${link}"
-            yellow "分享链接: "
+            yellow "分享链接(v2RayN): "
             green "$shareLink"
+            echo ""
+            newLink="${uuid}@${ip}:${port}"
+            yellow "分享链接(Xray标准): "
+            green "vmess://${newLink}"
         fi
 
 
@@ -305,6 +309,10 @@ raw="{
         echo ""
         yellow "分享链接: "
         green "$shareLink"
+        newPath=$(echo -n $path | xxd -p | tr -d '\n' | sed 's/\(..\)/%\1/g')
+        newLink="${uuid}@${ip}:${port}?type=ws&host=${host}&path=${newPath}"
+        yellow "分享链接(Xray标准): "
+        green "vmess://${newLink}"
 
 
     elif [[ "$transport" == "mKCP" ]]; then
@@ -412,6 +420,9 @@ raw="{
         shareLink="vmess://${link}"
         yellow "分享链接: "
         green "$shareLink"
+        newLink="${uuid}@${ip}:${port}?type=kcp&headerType=$camouflageType"
+        yellow "分享链接(Xray标准): "
+        green "vmess://${newLink}"
 
 
     elif [[ "$transport" == "http" ]]; then
@@ -543,6 +554,428 @@ EOF
     systemctl start xray
     ufw allow $port
     ufw reload
+}
+
+set_VLESS_withoutTLS() {
+    echo ""
+    red "警告: 会覆盖原有配置!"
+    echo ""
+    read -p "请输入 VLESS 监听端口: " port
+    [[ -z "${port}" ]] && port=$(shuf -i200-65000 -n1)
+    if [[ "${port:0:1}" == "0" ]]; then
+        red "端口不能以0开头"
+        port=$(shuf -i200-65000 -n1)
+    fi
+    yellow "当前端口: $port"
+    echo ""
+    uuid=$(xray uuid)
+    [[ -z "$uuid" ]] && red "请先安装 Xray !" && exit 1
+    yellow "当前uuid: $uuid"
+    echo ""
+    yellow "底层传输协议: "
+    yellow "注: 由于 VLESS 是明文传输，所以砍掉了tcp;除 mKCP 外，其他选项都监听 127.0.0.1!"
+    yellow "1. websocket(ws) (推荐)"
+    yellow "2. mKCP (默认)"
+    yellow "3. HTTP/2"
+    green "4. gRPC"
+    echo ""
+    read -p "请选择: " answer
+    case $answer in
+        1) transport="ws" ;;
+        2) transport="mKCP" ;;
+        3) transport="http" ;;
+        4) transport="gRPC" ;;
+        *) transport="mKCP" ;;
+    esac
+    yellow "当前底层传输协议: $transport"
+    echo ""
+
+    if [[ "$transport" == "ws" ]] ;then
+        read -p "请输入路径(以"/"开头，默认随机): " path
+        while true; do
+            if [[ -z "${path}" ]]; then
+                tmp=$(openssl rand -hex 6)
+                path="/$tmp"
+                break
+            elif [[ "${path:0:1}" != "/" ]]; then
+                red "伪装路径必须以/开头！"
+                path=""
+            else
+                break
+            fi
+        done
+        yellow "当前路径: $path"
+        echo ""
+        yellow "请输入ws域名: (默认 a.189.cn): " host
+        [[ -z "$host" ]] && host="a.189.cn"
+        cat >/usr/local/etc/xray/config.json <<-EOF
+{
+    "inbounds": [
+        {
+            "listen": "127.0.0.1",
+            "port": $port,
+            "protocol": "VLESS",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "level": 0,
+                        "email": "love@xray.com"
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "ws",
+                "wsSettings": {
+                    "path": "$path",
+                    "headers": {
+                        "Host": "$host"
+                    }
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "settings": {}
+        }
+    ]
+}
+EOF
+        echo ""
+        yellow "协议: VLESS"
+        yellow "端口: $port"
+        yellow "uuid: $uuid"
+        yellow "额外ID: 0"
+        yellow "传输方式: ws(websocket)"
+        yellow "路径: $path 或 ${path}?ed=2048 (后面这个延迟更低，但可能增加特征)"
+        yellow "ws host(伪装域名): $host"
+    
+
+    elif [[ "$transport" == "mKCP" ]] ;then
+        echo ""
+        yellow "下行带宽:"
+        yellow "单位: MB/s，注意是 Byte 而非 bit"
+        yellow "默认: 100"
+        yellow "建议设置为一个较大值"
+        read -p "请设置: " uplinkCapacity
+        [[ -z "$uplinkCapacity" ]] && uplinkCapacity=100
+        yellow "当前上行带宽: $uplinkCapacity"
+        echo ""
+        yellow "上行带宽: "
+        yellow "单位: MB/s，注意是 Byte 而非 bit"
+        yellow "默认: 100"
+        yellow "建议设为你的真实上行带宽到它的两倍"
+        read -p "请设置: " downlinkCapacity
+        [[ -z "$downlinkCapacity" ]] && downlinkCapacity=100
+        yellow "当前下行带宽: $downlinkCapacity"
+        echo ""
+        read -p "混淆密码(默认随机): " seed
+        [[ -z "$seed" ]] && seed=$(openssl rand -base64 16)
+        yellow "当前混淆密码: $seed"
+        echo ""
+        yellow "伪装类型: "
+        yellow "1. 不伪装:none(默认)"
+        yellow "2. SRTP: 伪装成 SRTP 数据包，会被识别为视频通话数据（如 FaceTime）"
+        yellow "3. uTP: 伪装成 uTP 数据包，会被识别为 BT 下载数据"
+        yellow "4. wechat-video: 伪装成微信视频通话的数据包"
+        yellow "5. DTLS: 伪装成 DTLS 1.2 数据包"
+        yellow "6. wireguard: 伪装成 WireGuard 数据包。（并不是真正的 WireGuard 协议）"
+        read -p "请选择: " answer
+        case $answer in
+            1) camouflageType="none" ;;
+            2) camouflageType="srtp" ;;
+            3) camouflageType="utp" ;;
+            4) camouflageType="wechat-video" ;;
+            5) camouflageType="dtls" ;;
+            6) camouflageType="wireguard" ;;
+            *) camouflageType="none" ;;
+        esac
+        yellow "当前伪装: $camouflageType"
+        cat >/usr/local/etc/xray/config.json <<-EOF
+{
+    "inbounds": [
+        {
+            "port": ${port},
+            "protocol": "VLESS",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "level": 0,
+                        "email": "love@xray.com"
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "mkcp",
+                "kcpSettings": {
+                    "uplinkCapacity": ${uplinkCapacity},
+                    "downlinkCapacity": ${downlinkCapacity},
+                    "congestion": true,
+                    "header": {
+                        "type": "${camouflageType}"
+                    },
+                    "seed": "$seed"
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "settings": {}
+        },
+        {
+            "protocol": "blackhole",
+            "settings": {},
+            "tag": "blocked"
+        }
+    ]
+}
+EOF
+        echo ""
+        yellow "协议: VLESS"
+        yellow "传输协议: mKCP"
+        yellow "端口: $port"
+        yellow "uuid: $uuid"
+        yellow "额外ID: 0"
+        yellow "伪装类型: $camouflageType"
+        yellow "上行带宽: $uplinkCapacity"
+        yellow "下行带宽: $downlinkCapacity"
+        yellow "mKCP seed(混淆密码): $seed"
+        echo ""
+        newSeed=$(echo -n $seed | xxd -p | tr -d '\n' | sed 's/\(..\)/%\1/g')
+        newLink="${uuid}@${ip}:${port}?type=kcp&headerType=${camouflageType}&seed=${newSeed}"
+        yellow "分享链接(Xray标准): "
+        green "vless://${newLink}"
+
+
+    elif [[ "$transport" == "http" ]] ;then
+        read -p "请输入域名: " domain
+        [[ -z "$domain" ]] && red "请输入域名！" && exit 1
+        yellow "当前域名: $domain"
+        echo ""
+        read -p "请输入路径(以"/"开头，默认随机): " path
+        while true; do
+            if [[ -z "${path}" ]]; then
+                tmp=$(openssl rand -hex 6)
+                path="/$tmp"
+                break
+            elif [[ "${path:0:1}" != "/" ]]; then
+                red "路径必须以/开头！"
+                path=""
+            else
+                break
+            fi
+        done
+        yellow "当前路径: $path"
+        cat >/usr/local/etc/xray/config.json <<-EOF
+{
+    "inbounds": [
+        {
+            "listen": "127.0.0.1",
+            "port": "$port",
+            "protocol": "VLESS",
+            "streamSettings": {
+                "network": "http",
+                "httpSettings": {
+                    "host": [
+                        "$domain"
+                    ],
+                    "path": "$path"
+                }
+            },
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "level": 0,
+                        "email": "love@xray.com"
+                    }
+                ],
+                "decryption": "none"
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "settings": {}
+        }
+    ]
+}
+EOF
+        echo ""
+        yellow "协议: VLESS"
+        yellow "端口: $port"
+        yellow "uuid: $uuid"
+        yellow "额外ID: 0"
+        yellow "传输协议: HTTP/2(http)"
+        yellow "域名: $domain"
+        yellow "路径: $path"
+
+
+    elif [[ "$transport" == "gRPC" ]] ;then
+        echo ""
+        red "警告: 客户端仅开启TLS才能连接，所以这里只监听 127.0.0.1"
+        red "不懂的请退出"
+        yellow "server name: "
+        yellow "作用类似于ws中的"path""
+        read -p "请输入: " serverName
+        while true; do
+            if [[ -z "${serverName}" ]]; then
+                serverName=$(openssl rand -hex 6)
+                break
+            else
+                break
+            fi
+        done
+        yellow "当前server name: $serverName"
+        cat >/usr/local/etc/xray/config.json <<-EOF
+{
+    "inbounds": [
+        {
+            "listen": "127.0.0.1",
+            "port": $port,
+            "protocol": "VLESS",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "level": 0,
+                        "email": "love@xray.com"
+                    }
+                ],
+                "decryption": "none"
+            }
+            },
+            "streamSettings": {
+                "network": "grpc",
+                "grpcSettings": {
+                    "serviceName": "$serviceName"
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "settings": {}
+        }
+    ]
+}
+EOF
+        echo ""
+        yellow "协议: VMess"
+        yellow "端口: $port"
+        yellow "uuid: $uuid"
+        yellow "额外ID: 0"
+        yellow "传输方式: gRPC"
+        yellow "server name: $serverName"
+    fi
+
+    systemctl stop xray
+    systemctl start xray
+    ufw allow $port
+    ufw reload
+}
+
+set_shadowsocks_withoutTLS() {
+    echo ""
+    read -p "请输入 shadowsocks 监听端口(默认随机): " port
+    [[ -z "${port}" ]] && port=$(shuf -i200-65000 -n1)
+    if [[ "${port:0:1}" == "0" ]]; then
+        red "端口不能以0开头"
+        port=$(shuf -i200-65000 -n1)
+    fi
+    yellow "当前 shadowsocks 监听端口: $port"
+    echo ""
+    echo ""
+    yellow "加密方式: "
+    red "注: 带"2022"的为 shadowsocks-2022 加密方式，目前支持的客户端较少，但抗封锁性更强，且能开启 UDP over TCP"
+    yellow "按推荐程度排序"
+    echo ""
+    green "1. 2022-blake3-aes-128-gcm"
+    green "2. 2022-blake3-aes-256-gcm"
+    green "3. 2022-blake3-chacha20-poly1305"
+    yellow "4. aes-128-gcm(推荐)"
+    yellow "5. aes-256-gcm"
+    green "6. chacha20-ietf-poly1305(默认)"
+    yellow "7. xchacha20-ietf-poly1305"
+    red "8 none(不加密，选择后会自动只监听 127.0.0.1 )"
+    echo ""
+    read -p "请选择: " answer
+    case $answer in
+        1) method="2022-blake3-aes-128-gcm" && ss2022="true" ;;
+        2) method="2022-blake3-aes-256-gcm" && ss2022="true" ;;
+        3) method="2022-blake3-chacha20-poly1305" && ss2022="true" ;;
+        4) method="aes-128-gcm" ;;
+        5) method="aes-256-gcm" ;;
+        6) method="chacha20-ietf-poly1305" ;;
+        7) method="xchacha20-ietf-poly1305" ;;
+        8) method="none" ;;
+        *) method="chacha20-ietf-poly1305" ;;
+    esac
+    yellow "当前加密方式: $method"
+    echo ""
+    yellow "注意: 在 Xray 中，shadowsocks-2022都可以使用32位密码，但标准实现中，2022-blake3-aes-128-gcm使用16位密码，其他 Xray 支持的2022系加密使用32位密码。"
+    yellow "不懂直接回车"
+    yellow "16位密码: "
+    openssl rand -base64 16
+    read -p "请输入 shadowsocks 密码(默认32位): " password
+    [[ -z "$password" ]] && password=$(openssl rand -base64 32)
+    yellow "当前密码: $password"
+    if [[ "$method" == "none" ]]; then
+        listen=""listen": "127.0.0.1","
+    else
+        listen=""
+    fi
+    cat >/usr/local/etc/xray/config.json <<-EOF
+{
+    "inbounds": [
+        {
+            ${listen}
+            "port": $port,
+            "protocol": "shadowsocks",
+            "settings": {
+                "settings": {
+                    "password": "$password",
+                    "method": "$method",
+                    "level": 0,
+                    "email": "love@xray.com",
+                    "network": "tcp,udp"
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "settings": {}
+        }
+    ]
+}
+EOF
+    echo ""
+    ip=$(curl ip.sb)
+    yellow "协议: shadowsocks"
+    yellow "ip: $ip"
+    yellow "端口: $port"
+    yellow "加密方式: $method"
+    yellow "密码: $password"
+    echo ""
+    raw="${method}:${password}@${ip}:${port}"
+    if [[ "$ss2022" != "true" ]]; then
+        link=$(echo -n ${raw} | base64 -w 0)
+    else
+        link="$raw"
+    fi
+    green "分享链接: "
+    green "$link"
 }
 
 set_withoutTLS() {
