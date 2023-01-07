@@ -932,15 +932,15 @@ set_shadowsocks_withoutTLS() {
     [[ -z "$password" ]] && password=$(openssl rand -base64 32)
     yellow "当前密码: $password"
     if [[ "$method" == "none" ]]; then
-        listen=""listen": "127.0.0.1","
+        listen="127.0.0.1"
     else
-        listen=""
+        listen="0.0.0.0"
     fi
     cat >/usr/local/etc/xray/config.json <<-EOF
 {
     "inbounds": [
         {
-            ${listen}
+            "listen": "$listen",
             "port": $port,
             "protocol": "shadowsocks",
             "settings": {
@@ -975,7 +975,7 @@ EOF
         link="$raw"
     fi
     green "分享链接: "
-    green "$link"
+    green "ss://$link"
 
     systemctl stop xray
     systemctl start xray
