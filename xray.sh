@@ -73,11 +73,11 @@ set_VMess_withoutTLS() {
         2) transport="ws" ;;
         3) transport="mKCP" ;;
         4) transport="http" ;;
-        5) transport="grpc" ;;
+        5) transport="gRPC" ;;
         *) transport="tcp" ;;
     esac
 
-    if [[ "$tansport" == "tcp" ]]; then
+    if [[ "$transport" == "tcp" ]]; then
         yellow "伪装方式: "
         yellow "1. none(默认，无伪装)"
         yellow "2. http(可免流)"
@@ -347,7 +347,7 @@ raw="{
 {
     "inbounds": [
         {
-            "port": $PORT,
+            "port": ${port},
             "protocol": "vmess",
             "settings": {
                 "clients": [
