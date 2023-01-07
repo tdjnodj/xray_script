@@ -506,7 +506,7 @@ set_withoutTLS() {
     yellow "3. VLESS(由于VLESS没有加密，请勿使用VLESS直接过墙!)"
     echo ""
     read -p "请选择: " protocol
-    case $protocal in
+    case $protocol in
         1) set_VMess_withoutTLS ;;
         2) set_shadowsocks_withoutTLS ;;
         3) set_VLESS_withoutTLS ;;
@@ -537,6 +537,8 @@ install_build() {
 	}
     systemctl stop xray
     cp xray /usr/local/bin/
+    cd ..
+    rm -rf Xray-core/
     mkdir /usr/local/etc/xray 
     mkdir /usr/local/share/xray
     cd /usr/local/share/xray
