@@ -606,7 +606,7 @@ set_VLESS_withoutTLS() {
         done
         yellow "当前路径: $path"
         echo ""
-        yellow "请输入ws域名: (默认 a.189.cn): " host
+        read -p "请输入ws域名: (默认 a.189.cn): " host
         [[ -z "$host" ]] && host="a.189.cn"
         cat >/usr/local/etc/xray/config.json <<-EOF
 {
